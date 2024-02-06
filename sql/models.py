@@ -1,14 +1,21 @@
-from sqlalchemy import Column, DateTime, Integer, String
+from sqlalchemy import Column, DateTime, Integer, String, UniqueConstraint
 
 from .database import Base
 
-class Article(Base):
+
+class ArticleBase(Base):
     __tablename__ = "articles"
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String, unique=True, index=True)
-    website = Column(String)
-    url = Column(String)
-    saved_path = Column(String)
-    saved_timestamp = Column(DateTime)
+    url = Column(String, primary_key=True, index=True)
     writen_timestamp = Column(DateTime)
+
+class ArticleCreate(ArticleBase):
+    pass
+
+class Article(ArticleBase):
+    id = Column(Integer, index=True)
+    publisher = Column(String)
+    name = Column(String, index=True)
+    filename = Column(String)
+    archived_path = Column(String, unique=True)
+    saved_timestamp = Column(DateTime)

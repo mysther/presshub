@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from typing import Union, Annotated
 from urllib.parse import urlparse
 from os.path import isfile
+from datetime import datetime
 
 import json
 
@@ -24,18 +25,17 @@ def get_db():
     finally:
         db.close()
 
-
-@app.get("/")
-async def hello(settings: Annotated[Settings, Depends(get_settings)]):
-    return settings
+# @app.get("/")
+# async def hello(settings: Annotated[Settings, Depends(get_settings)]):
+#     return settings
 
 @app.get("/articles/", response_model=list[schemas.Article])
-def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def read_articles(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     articles = crud.get_articles(db, skip=skip, limit=limit)
     return articles
 
 @app.get("/{url:path}")
-async def catch_all(settings: Annotated[Settings, Depends(get_settings)], url: Union[str, None] = None, download: Union[int, None] = None):
+async def catch_all(settings: Annotated[Settings, Depends(get_settings)], db: Session = Depends(get_db), url: Union[str, None] = None, download: Union[int, None] = None):
     
     parsed_url = urlparse(url)
     if not parsed_url.scheme and not parsed_url.netloc:
@@ -59,13 +59,21 @@ async def catch_all(settings: Annotated[Settings, Depends(get_settings)], url: U
             status_code=400
         )
 
-    filename = parsed_url.path.split("/")[-1] + ".pdf"
+    article: schemas.Article = crud.get_article(db, url)
 
-    if (isfile(settings.data_path + filename)):
-        f = open(settings.data_path + filename, "rb")
+    if (article):
+        f = open(article.archived_path, "rb")
         pdf_bytes = f.read()
-            
+        
+        return Response(
+            content=pdf_bytes, 
+            media_type="application/pdf", 
+            # To view the file in the browser, use "inline" for the media_type
+            headers={"Content-Disposition": "{}; filename={}.pdf".format("attachment" if download==1 else "inline", article.filename)}
+            )
+
     else:
+        # Article not archived
         async with async_playwright() as playwright:
             browser = await playwright.chromium.launch()
 
@@ -80,7 +88,14 @@ async def catch_all(settings: Annotated[Settings, Depends(get_settings)], url: U
             pdf_bytes = await page.pdf()
             await browser.close()
 
-        f = open(settings.data_path + filename, "wb")
+        article: schemas.Article = schemas.ArticleCreate(
+            url=url,
+            writen_timestamp=datetime.now()
+            )
+        
+        article = crud.save_article(db, article)
+
+        f = open(article.archived_path, "wb")
         f.write(pdf_bytes)
         f.close()
 
@@ -88,5 +103,5 @@ async def catch_all(settings: Annotated[Settings, Depends(get_settings)], url: U
         content=pdf_bytes, 
         media_type="application/pdf", 
         # To view the file in the browser, use "inline" for the media_type
-        headers={"Content-Disposition": "{}; filename={}.pdf".format("attachment" if download==1 else "inline", filename)}
+        headers={"Content-Disposition": "{}; filename={}.pdf".format("attachment" if download==1 else "inline", article.name + ".pdf")}
         )

@@ -1,14 +1,20 @@
 from datetime import datetime
 from pydantic import BaseModel
 
-class Article(BaseModel):
-    id: int
-    name: str
+class ArticleBase(BaseModel):
     url: str
-    website: str
-    saved_path: str
-    saved_timestamp: datetime
     writen_timestamp: datetime
 
+class ArticleCreate(ArticleBase):
+    pass
+
+class Article(ArticleBase):
+    id: int
+    name: str
+    publisher: str
+    filename: str
+    archived_path: str
+    saved_timestamp: datetime
+
     class Config:
-        orm_mode = True
+        from_attributes = True

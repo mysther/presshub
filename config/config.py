@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     data_path: str = "./data/"
     mediapart: Credential = None
 
-    SQLALCHEMY_DATABASE_URL: str = "sqlite+pysqlite:///" + data_path + "app.db"
+    SQLALCHEMY_DATABASE_URL: str = "sqlite+pysqlite:///" + data_path + "app.sqlite"
 
 @lru_cache
 def get_settings():
