@@ -1,4 +1,4 @@
-FROM python:3.12
+FROM mcr.microsoft.com/playwright/python:v1.41.0-jammy
 
 WORKDIR /app
 
@@ -8,4 +8,4 @@ RUN pip install --no-cache-dir --upgrade -r /app/src/requirements.txt
 
 COPY src/ /app/src/
 
-CMD ["uvicorn", "uvicorn", "--app-dir=src", "main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "--app-dir=src", "main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]

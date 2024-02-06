@@ -1,5 +1,6 @@
-fastapi==0.109.0
+fastapi==0.109.2
 playwright==1.41.1
-pydantic==2.6.0
+pydantic==2.6.1
 pydantic_settings==2.1.0
+SQLAlchemy==2.0.25
 uvicorn[standard]==0.27.*
