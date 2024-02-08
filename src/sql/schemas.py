@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import TypedDict
 from pydantic import BaseModel
 
 class ArticleBase(BaseModel):
@@ -15,6 +16,13 @@ class Article(ArticleBase):
     filename: str
     archived_path: str
     saved_timestamp: datetime
+
+    class Config:
+        from_attributes = True
+
+class WebsiteSession(BaseModel):
+    hostname: str
+    storage_state: TypedDict
 
     class Config:
         from_attributes = True

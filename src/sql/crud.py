@@ -20,6 +20,7 @@ def get_article(db: Session, url: str):
 def delete_article(db: Session, url: str):
     stmt = delete(models.Article).where(models.Article.url == url).returning(models.Article.archived_path)
     deleted_article: Union[models.Article, None] = db.execute(stmt).fetchone()
+    db.commit()
     
     if os.path.exists(deleted_article.archived_path):
         os.remove(deleted_article.archived_path)
@@ -51,3 +52,12 @@ def save_article(db: Session, article: schemas.ArticleCreate):
     db.commit()
     db.refresh(db_article)
     return db_article
+
+def get_website_session(db: Session, hostname: str):
+    return db.query(models.WebsiteSession).filter(models.WebsiteSession.hostname == hostname).first()
+
+def save_website_session(db: Session, website_session: schemas.WebsiteSession):
+    db.add(website_session)
+    db.commit()
+    db.refresh(website_session)
+    return website_session

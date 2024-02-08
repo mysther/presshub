@@ -4,12 +4,11 @@ from sqlalchemy.orm import Session
 
 from typing import Union, Annotated
 from urllib.parse import urlparse
-from os.path import isfile
-from datetime import datetime
 
 import json
 
 from config.config import Settings, get_settings
+from scraper.base_scraper import Scraper
 from sql import crud, models, schemas
 from sql.database import SessionLocal, engine
 
@@ -24,10 +23,6 @@ def get_db():
         yield db
     finally:
         db.close()
-
-# @app.get("/")
-# async def hello(settings: Annotated[Settings, Depends(get_settings)]):
-#     return settings
 
 @app.get("/articles/", response_model=list[schemas.Article])
 def read_articles(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
@@ -61,43 +56,17 @@ async def catch_all(settings: Annotated[Settings, Depends(get_settings)], db: Se
 
     article: schemas.Article = crud.get_article(db, url)
 
-    if (article):
-        f = open(article.archived_path, "rb")
-        pdf_bytes = f.read()
-        
-        return Response(
-            content=pdf_bytes, 
-            media_type="application/pdf", 
-            # To view the file in the browser, use "inline" for the media_type
-            headers={"Content-Disposition": "{}; filename={}.pdf".format("attachment" if download==1 else "inline", article.filename)}
-            )
-
-    else:
-        # Article not archived
+    # If article is not archived
+    if (not article):
+        scraper = Scraper(settings, url)
         async with async_playwright() as playwright:
             browser = await playwright.chromium.launch()
+            
+            await scraper.login(db, browser)
+            article = await scraper.save_article(db)
 
-            api_context = await browser.new_context(base_url="https://www.mediapart.fr")
-            await api_context.request.post("https://www.mediapart.fr/login_check", form={
-                    'name': settings.mediapart.username,
-                    'password': settings.mediapart.password
-                })
-
-            page = await api_context.new_page()
-            await page.goto(url)
-            pdf_bytes = await page.pdf()
-            await browser.close()
-
-        article: schemas.Article = schemas.ArticleCreate(
-            url=url,
-            writen_timestamp=datetime.now()
-            )
-        
-        article = crud.save_article(db, article)
-
-        f = open(article.archived_path, "wb")
-        f.write(pdf_bytes)
-        f.close()
+    f = open(article.archived_path, "rb")
+    pdf_bytes = f.read()
 
     return Response(
         content=pdf_bytes, 
