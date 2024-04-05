@@ -57,7 +57,8 @@ def get_website_session(db: Session, hostname: str):
     return db.query(models.WebsiteSession).filter(models.WebsiteSession.hostname == hostname).first()
 
 def save_website_session(db: Session, website_session: schemas.WebsiteSession):
-    db.add(website_session)
+    db_item = models.WebsiteSession(**website_session.model_dump())
+    db.add(db_item)
     db.commit()
-    db.refresh(website_session)
-    return website_session
+    db.refresh(db_item)
+    return db_item

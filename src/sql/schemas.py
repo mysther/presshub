@@ -22,7 +22,7 @@ class Article(ArticleBase):
 
 class WebsiteSession(BaseModel):
     hostname: str
-    storage_state: TypedDict
+    storage_state: dict
 
     class Config:
         from_attributes = True

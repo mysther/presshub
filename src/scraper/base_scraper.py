@@ -1,7 +1,7 @@
 from datetime import datetime
 from config.config import Settings
 from playwright.async_api import Browser, BrowserContext
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
 
 from sqlalchemy.orm import Session
 from sql import crud, schemas
@@ -11,6 +11,7 @@ class Scraper(object):
     username: str
     password: str
     browser_context: BrowserContext
+    is_valid_credentials: bool
     
     def __new__(cls, settings: Settings, url: str):
         parsed_url = urlparse(url)
@@ -31,6 +32,7 @@ class ScraperMediapart(Scraper):
 
     def __init__(self, settings: Settings, url: str):
         self.url = url
+        self.is_valid_credentials = True
         self.username = settings.mediapart.username
         self.password = settings.mediapart.password
 
@@ -46,9 +48,17 @@ class ScraperMediapart(Scraper):
                     'name': self.username,
                     'password': self.password
                 })
+            
+            storage_state = await self.browser_context.storage_state()
+            
+            if (unquote(storage_state['cookies'][0]['value']) == '{"login_error":["login.bad_credentials"]}'):
+                self.is_valid_credentials = False
+                return
+            self.is_valid_credentials = True
+            
             website_session: schemas.WebsiteSession = schemas.WebsiteSession(
                 hostname=self.hostname,
-                storage_state=await self.browser_context.storage_state()
+                storage_state=storage_state
             )
             crud.save_website_session(db, website_session)
 

@@ -1,11 +1,10 @@
-from fastapi import FastAPI, Response, Depends
+from fastapi import FastAPI, HTTPException, Response, Depends
+from fastapi.responses import JSONResponse
 from playwright.async_api import async_playwright
 from sqlalchemy.orm import Session
 
 from typing import Union, Annotated
 from urllib.parse import urlparse
-
-import json
 
 from config.config import Settings, get_settings
 from scraper.base_scraper import Scraper
@@ -34,26 +33,13 @@ async def catch_all(settings: Annotated[Settings, Depends(get_settings)], db: Se
     
     parsed_url = urlparse(url)
     if not parsed_url.scheme and not parsed_url.netloc:
-        return Response(
-            content=json.dumps({"status_code": "400", "message": "Please, add an Mediapart URL in the path."}),
-            media_type="application/json",
-            status_code=400
-        )
+        return JSONResponse(status_code=200, content={"detail": "Service working. Please, add an Mediapart URL in the path."})
+    elif not parsed_url.scheme == "https":
+        raise HTTPException(status_code=400, detail="We only support https:// scheme.")
+    elif not parsed_url.netloc == "www.mediapart.fr":
+        raise HTTPException(status_code=400, detail="We only support www.mediapart.fr website.")
 
-    if not parsed_url.scheme == "https":
-        return Response(
-            content=json.dumps({"status_code": "400", "message": "We only support https:// scheme."}),
-            media_type="application/json",
-            status_code=400
-        )
-
-    if not parsed_url.netloc == "www.mediapart.fr":
-        return Response(
-            content=json.dumps({"status_code": "400", "message": "We only support www.mediapart.fr website."}),
-            media_type="application/json",
-            status_code=400
-        )
-
+    # Try to retrive article archived localy
     article: schemas.Article = crud.get_article(db, url)
 
     # If article is not archived
@@ -63,8 +49,13 @@ async def catch_all(settings: Annotated[Settings, Depends(get_settings)], db: Se
             browser = await playwright.chromium.launch()
             
             await scraper.login(db, browser)
-            article = await scraper.save_article(db)
+            if (scraper.is_valid_credentials):
+                article = await scraper.save_article(db)
+            else:
+                raise HTTPException(status_code=503, detail="Credential on {} is no longer valid.".format(parsed_url.netloc))
+                
 
+    # Read pdf file
     f = open(article.archived_path, "rb")
     pdf_bytes = f.read()
 
